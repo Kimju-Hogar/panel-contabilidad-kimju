@@ -1,0 +1,38 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+require('dotenv').config();
+
+const app = express();
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors());
+app.use(helmet());
+app.use(morgan('dev'));
+
+const path = require('path');
+
+// Routes
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/products', require('./routes/productRoutes'));
+app.use('/api/sales', require('./routes/saleRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
+
+// Make uploads folder static
+app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+
+app.get('/', (req, res) => {
+    res.send('API is running...');
+});
+
+// Error Handling Middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ message: 'Internal Server Error', error: err.message });
+});
+
+module.exports = app;
