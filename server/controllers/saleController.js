@@ -71,10 +71,29 @@ const createSale = async (req, res) => {
 // @access  Private
 const getSales = async (req, res) => {
     try {
-        const sales = await Sale.find({})
+        const { startDate, endDate, paymentMethod, channel } = req.query;
+        let query = {};
+
+        // Date Filter
+        if (startDate || endDate) {
+            query.date = {};
+            if (startDate) query.date.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.date.$lte = end;
+            }
+        }
+
+        // Exact Match Filters
+        if (paymentMethod) query.paymentMethod = paymentMethod;
+        if (channel) query.channel = channel;
+
+        const sales = await Sale.find(query)
             .populate('products.product', 'name sku')
             .populate('createdBy', 'name')
             .sort({ date: -1 });
+
         res.json(sales);
     } catch (error) {
         res.status(500).json({ message: error.message });

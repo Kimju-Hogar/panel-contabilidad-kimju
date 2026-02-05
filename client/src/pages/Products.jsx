@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Edit, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, AlertCircle, Check, Image as ImageIcon } from 'lucide-react';
 import api from '../api/axios';
 import ProductModal from '../components/products/ProductModal';
+import { IMAGE_BASE_URL } from '../config/constants';
+import { getImageUrl } from '../utils/imageUtils';
 
 const Products = () => {
     const [products, setProducts] = useState([]);
@@ -9,6 +11,9 @@ const Products = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
+
+    // Quick Edit State
+    const [quickEdit, setQuickEdit] = useState({ id: null, field: null, value: '' });
 
     const fetchProducts = async () => {
         try {
@@ -52,6 +57,32 @@ const Products = () => {
         }
     };
 
+    // Quick Update Logic
+    const handleQuickUpdate = async (id, field, value) => {
+        try {
+            // Optimistic update
+            setProducts(prev => prev.map(p => p._id === id ? { ...p, [field]: value } : p));
+
+            await api.put(`/products/${id}`, { [field]: value });
+            setQuickEdit({ id: null, field: null, value: '' });
+        } catch (error) {
+            console.error("Quick update failed", error);
+            fetchProducts(); // Revert on failure
+        }
+    };
+
+    const startQuickEdit = (product, field) => {
+        setQuickEdit({ id: product._id, field, value: product[field] });
+    };
+
+    const handleKeyDown = (e, id, field) => {
+        if (e.key === 'Enter') {
+            handleQuickUpdate(id, field, quickEdit.value);
+        } else if (e.key === 'Escape') {
+            setQuickEdit({ id: null, field: null, value: '' });
+        }
+    };
+
     const openEdit = (product) => {
         setEditingProduct(product);
         setIsModalOpen(true);
@@ -68,111 +99,167 @@ const Products = () => {
     );
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <h1 className="text-3xl font-bold text-foreground">Inventario</h1>
+                <div>
+                    <h1 className="text-3xl font-bold text-foreground">Inventario</h1>
+                    <p className="text-muted-foreground">Gestiona tus productos, precios y existencias.</p>
+                </div>
                 <button
                     onClick={openCreate}
-                    className="bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-md hover:shadow-lg"
+                    className="bg-primary text-primary-foreground px-6 py-3 rounded-xl flex items-center space-x-2 hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/25 active:scale-95"
                 >
                     <Plus size={20} />
-                    <span>Nuevo Producto</span>
+                    <span className="font-semibold">Nuevo Producto</span>
                 </button>
             </div>
 
-            {/* Filters */}
-            <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Buscar por nombre o SKU..."
-                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            {/* Simple Filters */}
+            <div className="bg-card p-2 rounded-2xl border border-border shadow-sm flex items-center gap-2 max-w-md">
+                <div className="pl-3 text-muted-foreground">
+                    <Search size={20} />
                 </div>
-                <button className="flex items-center space-x-2 px-4 py-2 border border-border rounded-lg hover:bg-accent text-muted-foreground">
-                    <Filter size={20} />
-                    <span>Filtros</span>
-                </button>
+                <input
+                    type="text"
+                    placeholder="Buscar producto..."
+                    className="flex-1 bg-transparent p-2 outline-none text-foreground placeholder:text-muted-foreground/70"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
 
             {/* Table */}
-            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                    <table className="w-full text-left">
+                        <thead className="bg-muted/30 text-muted-foreground font-semibold border-b border-border text-xs uppercase tracking-wider">
                             <tr>
-                                <th className="p-4">Producto</th>
-                                <th className="p-4">SKU</th>
-                                <th className="p-4">Categoría</th>
-                                <th className="p-4 text-right">Precio Venta</th>
-                                <th className="p-4 text-center">Stock</th>
-                                <th className="p-4 text-center">Margen</th>
-                                <th className="p-4 text-center">Acciones</th>
+                                <th className="p-5">Producto</th>
+                                <th className="p-5 text-center">Stock (Rápido)</th>
+                                <th className="p-5 text-right">Precio (Rápido)</th>
+                                <th className="p-5 text-center">Estado</th>
+                                <th className="p-5 text-center">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-border">
+                        <tbody className="divide-y divide-border/50">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" className="p-8 text-center text-muted-foreground">Cargando inventario...</td>
+                                    <td colSpan="5" className="p-12 text-center text-muted-foreground">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                            <span>Cargando inventario...</span>
+                                        </div>
+                                    </td>
                                 </tr>
                             ) : filteredProducts.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="p-8 text-center text-muted-foreground">No se encontraron productos.</td>
+                                    <td colSpan="5" className="p-12 text-center text-muted-foreground">
+                                        <p>No se encontraron productos.</p>
+                                    </td>
                                 </tr>
                             ) : (
                                 filteredProducts.map((product) => (
-                                    <tr key={product._id} className="hover:bg-accent/50 transition-colors group">
-                                        <td className="p-4 font-medium text-foreground flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-md bg-muted border border-border overflow-hidden">
-                                                {product.image ? (
-                                                    <img
-                                                        src={`http://localhost:5000${product.image.startsWith('/') ? '' : '/'}${product.image}`}
-                                                        alt={product.name}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground uppercase">IMG</div>
-                                                )}
-                                            </div>
-                                            {product.name}
-                                        </td>
-                                        <td className="p-4 text-muted-foreground">{product.sku}</td>
+                                    <tr key={product._id} className="hover:bg-muted/30 transition-colors group">
                                         <td className="p-4">
-                                            <span className="px-2 py-1 rounded-full text-xs bg-secondary text-secondary-foreground font-medium">
-                                                {product.category}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-right font-medium text-foreground">
-                                            ${product.publicPrice.toLocaleString()}
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${product.stock <= product.minStock ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-600'
-                                                }`}>
-                                                {product.stock <= product.minStock && <AlertCircle size={12} className="mr-1" />}
-                                                {product.stock}
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-lg bg-muted border border-border overflow-hidden shrink-0">
+                                                    {product.image ? (
+                                                        <img
+                                                            src={getImageUrl(product.image)}
+                                                            alt={product.name}
+                                                            className="w-full h-full object-cover"
+                                                            loading="lazy"
+                                                            onError={(e) => {
+                                                                e.target.onerror = null;
+                                                                e.target.style.display = 'none'; // Hide if broken
+                                                                e.target.parentElement.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                                            <ImageIcon size={20} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-foreground text-base">{product.name}</div>
+                                                    <div className="text-sm text-muted-foreground flex gap-2">
+                                                        <span>{product.sku}</span>
+                                                        <span className="text-border">•</span>
+                                                        <span>{product.category}</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td className="p-4 text-center text-muted-foreground">
-                                            {product.margin?.percentage?.toFixed(1)}%
-                                        </td>
+
+                                        {/* Inline Stock Edit */}
                                         <td className="p-4 text-center">
-                                            <div className="flex items-center justify-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {quickEdit.id === product._id && quickEdit.field === 'stock' ? (
+                                                <input
+                                                    autoFocus
+                                                    type="number"
+                                                    className="w-20 p-1 text-center bg-background border-2 border-primary rounded-md outline-none font-bold"
+                                                    value={quickEdit.value}
+                                                    onChange={(e) => setQuickEdit({ ...quickEdit, value: e.target.value })}
+                                                    onBlur={() => handleQuickUpdate(product._id, 'stock', quickEdit.value)}
+                                                    onKeyDown={(e) => handleKeyDown(e, product._id, 'stock')}
+                                                />
+                                            ) : (
+                                                <div
+                                                    onClick={() => startQuickEdit(product, 'stock')}
+                                                    className={`cursor-pointer inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border transition-all ${product.stock <= product.minStock
+                                                        ? 'bg-red-500/10 text-red-600 border-red-200'
+                                                        : 'bg-green-500/10 text-green-600 border-green-200 hover:border-green-400'
+                                                        }`}
+                                                >
+                                                    {product.stock}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* Inline Price Edit */}
+                                        <td className="p-4 text-right">
+                                            {quickEdit.id === product._id && quickEdit.field === 'publicPrice' ? (
+                                                <input
+                                                    autoFocus
+                                                    type="number"
+                                                    className="w-24 p-1 text-right bg-background border-2 border-primary rounded-md outline-none font-bold"
+                                                    value={quickEdit.value}
+                                                    onChange={(e) => setQuickEdit({ ...quickEdit, value: e.target.value })}
+                                                    onBlur={() => handleQuickUpdate(product._id, 'publicPrice', quickEdit.value)}
+                                                    onKeyDown={(e) => handleKeyDown(e, product._id, 'publicPrice')}
+                                                />
+                                            ) : (
+                                                <div
+                                                    onClick={() => startQuickEdit(product, 'publicPrice')}
+                                                    className="cursor-pointer font-bold text-foreground hover:text-primary transition-colors"
+                                                >
+                                                    ${product.publicPrice.toLocaleString()}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        <td className="p-4 text-center">
+                                            <div className={`text-xs font-semibold px-2 py-0.5 rounded ${product.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                {product.status === 'active' ? 'Activo' : 'Inactivo'}
+                                            </div>
+                                        </td>
+
+                                        <td className="p-4 text-center">
+                                            <div className="flex items-center justify-center space-x-1">
                                                 <button
                                                     onClick={() => openEdit(product)}
-                                                    className="p-1.5 hover:bg-primary/10 text-primary rounded-md transition-colors"
-                                                    title="Editar"
+                                                    className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors"
+                                                    title="Editar Detalle"
                                                 >
-                                                    <Edit size={16} />
+                                                    <Edit size={18} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(product._id)}
-                                                    className="p-1.5 hover:bg-destructive/10 text-destructive rounded-md transition-colors"
+                                                    className="p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors"
                                                     title="Eliminar"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={18} />
                                                 </button>
                                             </div>
                                         </td>
@@ -189,6 +276,7 @@ const Products = () => {
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveProduct}
                 initialData={editingProduct}
+                totalProducts={products.length}
             />
         </div>
     );

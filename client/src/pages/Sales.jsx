@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ShoppingCart, Trash2, CreditCard, User, Tag, Plus, Minus, Save } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, CreditCard, User, Tag, Plus, Minus, Save, Image as ImageIcon } from 'lucide-react';
 import api from '../api/axios';
+import { IMAGE_BASE_URL } from '../config/constants';
+import { getImageUrl } from '../utils/imageUtils';
 
 const Sales = () => {
     const [products, setProducts] = useState([]);
@@ -30,6 +32,9 @@ const Sales = () => {
         setCart(prev => {
             const existing = prev.find(item => item.product._id === product._id);
             if (existing) {
+                // Check stock
+                if (existing.quantity >= product.stock) return prev;
+
                 return prev.map(item =>
                     item.product._id === product._id
                         ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.unitPrice }
@@ -114,16 +119,16 @@ const Sales = () => {
     );
 
     return (
-        <div className="flex flex-col lg:flex-row h-[calc(100vh-8rem)] gap-6">
+        <div className="flex flex-col lg:flex-row h-[calc(100vh-8rem)] gap-6 animate-fade-in">
             {/* Left: Product Selection */}
-            <div className="flex-1 flex flex-col bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="flex-1 flex flex-col bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-border bg-muted/30">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={22} />
                         <input
                             type="text"
-                            placeholder="Buscar producto..."
-                            className="w-full pl-10 pr-4 py-3 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none"
+                            placeholder="Buscar producto por nombre o código..."
+                            className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none text-base shadow-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             autoFocus
@@ -131,83 +136,125 @@ const Sales = () => {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 content-start">
+                <div className="flex-1 overflow-y-auto p-5 bg-muted/10">
                     {loading ? (
-                        <p className="col-span-full text-center text-muted-foreground">Cargando productos...</p>
+                        <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                            <p>Cargando catálogo...</p>
+                        </div>
+                    ) : filteredProducts.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-60">
+                            <Search size={48} className="mb-2" />
+                            <p>No hay productos que coincidan.</p>
+                        </div>
                     ) : (
-                        filteredProducts.map(product => (
-                            <button
-                                key={product._id}
-                                onClick={() => addToCart(product)}
-                                className="flex flex-col items-start p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-accent/50 transition-all text-left group"
-                            >
-                                <div className="w-full aspect-square bg-muted rounded-lg mb-3 flex items-center justify-center text-muted-foreground">
-                                    <Tag size={32} />
-                                </div>
-                                <h3 className="font-semibold text-sm line-clamp-2 mb-1">{product.name}</h3>
-                                <div className="flex justify-between w-full items-end mt-auto">
-                                    <span className="text-primary font-bold">${product.publicPrice.toLocaleString()}</span>
-                                    <span className="text-xs text-muted-foreground">Stock: {product.stock}</span>
-                                </div>
-                            </button>
-                        ))
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+                            {filteredProducts.map(product => (
+                                <button
+                                    key={product._id}
+                                    onClick={() => addToCart(product)}
+                                    className="flex flex-col h-full bg-background rounded-xl border border-border hover:border-primary/50 hover:shadow-lg transition-all text-left overflow-hidden group active:scale-[0.98]"
+                                >
+                                    <div className="w-full aspect-square bg-muted relative overflow-hidden">
+                                        {product.image ? (
+                                            <img
+                                                src={getImageUrl(product.image)}
+                                                alt={product.name}
+                                                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                                loading="lazy"
+                                                onError={(e) => e.target.style.display = 'none'}
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
+                                                <ImageIcon size={40} />
+                                            </div>
+                                        )}
+
+                                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white text-xs px-2 py-1 rounded-full font-bold">
+                                            {product.stock} un.
+                                        </div>
+                                    </div>
+
+                                    <div className="p-3 flex flex-col flex-1">
+                                        <h3 className="font-bold text-sm leading-tight line-clamp-2 mb-2 text-foreground">{product.name}</h3>
+                                        <div className="mt-auto pt-2 border-t border-border/50 w-full flex justify-between items-center">
+                                            <span className="text-muted-foreground text-xs">{product.sku}</span>
+                                            <span className="text-primary font-bold text-lg">${product.publicPrice.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     )}
                 </div>
             </div>
 
             {/* Right: Cart & Checkout */}
-            <div className="w-full lg:w-[400px] flex flex-col bg-card rounded-xl border border-border shadow-sm h-full">
-                <div className="p-4 border-b border-border bg-muted/30 flex justify-between items-center">
-                    <h2 className="font-bold flex items-center gap-2">
-                        <ShoppingCart size={20} />
-                        Carrito Actual
+            <div className="w-full lg:w-[420px] flex flex-col bg-card rounded-2xl border border-border shadow-xl h-full z-10">
+                <div className="p-5 border-b border-border bg-primary/5 flex justify-between items-center">
+                    <h2 className="font-bold text-lg flex items-center gap-2 text-foreground">
+                        <ShoppingCart size={22} className="text-primary" />
+                        Carrito de Venta
                     </h2>
-                    <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">{cart.length} items</span>
+                    <span className="text-sm font-bold bg-primary text-primary-foreground px-3 py-1 rounded-full shadow-sm">{cart.length}</span>
                 </div>
 
                 {/* Cart Items */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/5">
                     {cart.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50">
-                            <ShoppingCart size={48} className="mb-2" />
-                            <p>Carrito vacío</p>
+                            <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-4">
+                                <ShoppingCart size={40} />
+                            </div>
+                            <p className="font-medium">El carrito está vacío</p>
+                            <p className="text-sm">Agrega productos para comenzar</p>
                         </div>
                     ) : (
-                        cart.map(item => (
-                            <div key={item.product._id} className="flex gap-3 p-3 rounded-lg border border-border bg-background/50">
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">{item.product.name}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <input
-                                            type="number"
-                                            className="w-20 p-1 text-xs border border-border rounded bg-transparent"
-                                            value={item.unitPrice}
-                                            onChange={(e) => updatePrice(item.product._id, e.target.value)}
+                        cart.map((item, index) => (
+                            <div key={item.product._id} className="flex gap-3 p-3 rounded-xl border border-border bg-background shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${index * 50}ms` }}>
+                                <div className="w-16 h-16 rounded-lg bg-muted border border-border overflow-hidden shrink-0">
+                                    {item.product.image ? (
+                                        <img
+                                            src={`${IMAGE_BASE_URL}${item.product.image}`}
+                                            alt={item.product.name}
+                                            className="w-full h-full object-cover"
                                         />
-                                        <span className="text-xs text-muted-foreground">x {item.quantity}</span>
-                                    </div>
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                            <Tag size={16} />
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex flex-col items-end gap-2">
-                                    <p className="font-bold text-sm">${item.subtotal.toLocaleString()}</p>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => updateQuantity(item.product._id, -1)}
-                                            className="p-1 hover:bg-muted rounded"
-                                        >
-                                            <Minus size={14} />
-                                        </button>
+                                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                    <div className="flex justify-between items-start gap-2">
+                                        <p className="font-semibold text-sm leading-tight truncate-2-lines text-foreground">{item.product.name}</p>
                                         <button
                                             onClick={() => removeFromCart(item.product._id)}
-                                            className="p-1 text-destructive hover:bg-destructive/10 rounded"
+                                            className="text-muted-foreground hover:text-destructive transition-colors p-1 -mr-1"
                                         >
-                                            <Trash2 size={14} />
+                                            <Trash2 size={16} />
                                         </button>
-                                        <button
-                                            onClick={() => updateQuantity(item.product._id, 1)}
-                                            className="p-1 hover:bg-muted rounded"
-                                        >
-                                            <Plus size={14} />
-                                        </button>
+                                    </div>
+
+                                    <div className="flex items-end justify-between mt-2">
+                                        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5 border border-border">
+                                            <button
+                                                onClick={() => updateQuantity(item.product._id, -1)}
+                                                className="w-7 h-7 flex items-center justify-center hover:bg-background rounded-md transition-colors text-foreground"
+                                            >
+                                                <Minus size={12} />
+                                            </button>
+                                            <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
+                                            <button
+                                                onClick={() => updateQuantity(item.product._id, 1)}
+                                                className="w-7 h-7 flex items-center justify-center hover:bg-background rounded-md transition-colors text-foreground"
+                                            >
+                                                <Plus size={12} />
+                                            </button>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-base text-primary">${item.subtotal.toLocaleString()}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -216,11 +263,21 @@ const Sales = () => {
                 </div>
 
                 {/* Checkout Form */}
-                <div className="p-4 bg-muted/10 border-t border-border space-y-4">
-                    <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
+                <div className="p-5 bg-card border-t border-border shadow-[0_-5px_20px_-10px_rgba(0,0,0,0.1)] z-10 space-y-4">
+                    <div className="space-y-3">
+                        <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Cliente (Opcional)"
+                                className="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-input bg-muted/30 focus:bg-background transition-colors outline-none"
+                                value={customer.name}
+                                onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
                             <select
-                                className="w-full p-2 text-sm rounded-lg border border-input bg-background"
+                                className="w-full p-2.5 text-sm rounded-lg border border-input bg-muted/30 focus:bg-background transition-colors outline-none"
                                 value={paymentMethod}
                                 onChange={(e) => setPaymentMethod(e.target.value)}
                             >
@@ -232,7 +289,7 @@ const Sales = () => {
                                 <option value="Transferencia">Transferencia</option>
                             </select>
                             <select
-                                className="w-full p-2 text-sm rounded-lg border border-input bg-background"
+                                className="w-full p-2.5 text-sm rounded-lg border border-input bg-muted/30 focus:bg-background transition-colors outline-none"
                                 value={channel}
                                 onChange={(e) => setChannel(e.target.value)}
                             >
@@ -240,29 +297,22 @@ const Sales = () => {
                                 <option value="Instagram">Instagram</option>
                                 <option value="WhatsApp">WhatsApp</option>
                                 <option value="Website">Página Web</option>
-                                <option value="Other">Otro</option>
+                                <option value="Tienda">Tienda Física</option>
                             </select>
                         </div>
-                        <input
-                            type="text"
-                            placeholder="Cliente (Opcional)"
-                            className="w-full p-2 text-sm rounded-lg border border-input bg-background"
-                            value={customer.name}
-                            onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-                        />
                     </div>
 
-                    <div className="pt-2 border-t border-border flex items-center justify-between">
+                    <div className="pt-4 border-t border-border flex items-center justify-between gap-4">
                         <div>
-                            <p className="text-xs text-muted-foreground uppercase">Total a Pagar</p>
-                            <p className="text-2xl font-bold text-primary">${calculateTotal().toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Total a Pagar</p>
+                            <p className="text-3xl font-black text-foreground">${calculateTotal().toLocaleString()}</p>
                         </div>
                         <button
                             onClick={handleSale}
                             disabled={cart.length === 0}
-                            className="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="flex-1 bg-primary text-primary-foreground px-4 py-3.5 rounded-xl font-bold text-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
                         >
-                            <CreditCard size={20} />
+                            <CreditCard size={24} />
                             Cobrar
                         </button>
                     </div>

@@ -1,154 +1,229 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Download } from 'lucide-react';
 import api from '../api/axios';
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+import { Calendar, Filter, Download, ArrowUpRight, DollarSign } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const Reports = () => {
     const [sales, setSales] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({ totalRevenue: 0, totalProfit: 0, count: 0 });
+
+    // Filters
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [paymentMethod, setPaymentMethod] = useState('');
+    const [channel, setChannel] = useState('');
 
     useEffect(() => {
-        const fetchSales = async () => {
-            try {
-                const { data } = await api.get('/sales');
-                setSales(data);
-            } catch (error) {
-                console.error("Error fetching sales for reports", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchSales();
-    }, []);
+    }, [dateRange, paymentMethod, channel]);
 
-    // --- Aggregation Logic ---
+    const fetchSales = async () => {
+        try {
+            setLoading(true);
+            // Build query
+            const params = {};
+            if (dateRange.start) params.startDate = dateRange.start;
+            if (dateRange.end) params.endDate = dateRange.end;
+            if (paymentMethod) params.paymentMethod = paymentMethod;
+            if (channel) params.channel = channel;
 
-    // 1. Sales by Channel
-    const salesByChannel = sales.reduce((acc, sale) => {
-        const channel = sale.channel || 'Desconocido';
-        acc[channel] = (acc[channel] || 0) + sale.totalAmount;
-        return acc;
-    }, {});
+            // Assuming GET /api/sales supports these filters (will verify controller)
+            const res = await api.get('/sales', { params });
+            setSales(res.data);
+            calculateStats(res.data);
+        } catch (error) {
+            console.error("Error fetching reports", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const channelData = Object.keys(salesByChannel).map(key => ({
-        name: key,
-        value: salesByChannel[key]
-    }));
-
-    // 2. Monthly Sales (Simple aggregation by month)
-    const salesByMonth = sales.reduce((acc, sale) => {
-        const date = new Date(sale.date);
-        const month = date.toLocaleString('default', { month: 'short' });
-        acc[month] = (acc[month] || 0) + sale.totalAmount;
-        return acc;
-    }, {});
-
-    const monthlyData = Object.keys(salesByMonth).map(key => ({
-        name: key,
-        ventas: salesByMonth[key]
-    }));
-
-    // 3. Payment Methods
-    const salesByPayment = sales.reduce((acc, sale) => {
-        const method = sale.paymentMethod || 'Otros';
-        acc[method] = (acc[method] || 0) + 1; // Count transactions
-        return acc;
-    }, {});
-
-    const paymentData = Object.keys(salesByPayment).map(key => ({
-        name: key,
-        count: salesByPayment[key]
-    }));
-
-    const formatCurrency = (val) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
+    const calculateStats = (data) => {
+        const totalRevenue = data.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+        const totalProfit = data.reduce((acc, curr) => acc + (curr.totalProfit || 0), 0);
+        setStats({ totalRevenue, totalProfit, count: data.length });
+    };
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-foreground">Reportes Financieros</h1>
-                <button className="flex items-center space-x-2 px-4 py-2 border border-border rounded-lg hover:bg-accent text-primary">
-                    <Download size={20} />
-                    <span>Exportar PDF</span>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-400">
+                        Reportes de Ventas
+                    </h1>
+                    <p className="text-muted-foreground">Analiza el rendimiento de tu negocio</p>
+                </div>
+                {/* <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors">
+                    <Download size={18} />
+                    Exportar CSV
+                </button> */}
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="p-6 rounded-2xl bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/20"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-500/20 text-blue-500 rounded-xl">
+                            <DollarSign size={24} />
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Ingresos Totales</p>
+                            <h3 className="text-2xl font-bold text-foreground">${stats.totalRevenue.toLocaleString()}</h3>
+                        </div>
+                    </div>
+                </motion.div>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="p-6 rounded-2xl bg-gradient-to-br from-green-500/10 to-transparent border border-green-500/20"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-green-500/20 text-green-500 rounded-xl">
+                            <ArrowUpRight size={24} />
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Ganancia Neta</p>
+                            <h3 className="text-2xl font-bold text-foreground">${stats.totalProfit.toLocaleString()}</h3>
+                        </div>
+                    </div>
+                </motion.div>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="p-6 rounded-2xl bg-card border border-border"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-purple-500/20 text-purple-500 rounded-xl">
+                            <Filter size={24} />
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground">Ventas Realizadas</p>
+                            <h3 className="text-2xl font-bold text-foreground">{stats.count}</h3>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* Filters */}
+            <div className="p-4 bg-card rounded-xl border border-border flex flex-wrap gap-4 items-end">
+                <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Desde</label>
+                    <input
+                        type="date"
+                        value={dateRange.start}
+                        onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                        className="block w-full p-2 rounded-lg bg-background border border-input text-sm"
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Hasta</label>
+                    <input
+                        type="date"
+                        value={dateRange.end}
+                        onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                        className="block w-full p-2 rounded-lg bg-background border border-input text-sm"
+                    />
+                </div>
+                <div className="space-y-1 min-w-[150px]">
+                    <label className="text-xs font-medium text-muted-foreground">Método Pago</label>
+                    <select
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        className="block w-full p-2 rounded-lg bg-background border border-input text-sm"
+                    >
+                        <option value="">Todos</option>
+                        <option value="Mercado Pago">Mercado Pago</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Nequi">Nequi</option>
+                        <option value="Daviplata">Daviplata</option>
+                    </select>
+                </div>
+                <div className="space-y-1 min-w-[150px]">
+                    <label className="text-xs font-medium text-muted-foreground">Canal</label>
+                    <select
+                        value={channel}
+                        onChange={(e) => setChannel(e.target.value)}
+                        className="block w-full p-2 rounded-lg bg-background border border-input text-sm"
+                    >
+                        <option value="">Todos</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="Website">Website</option>
+                    </select>
+                </div>
+                <button
+                    onClick={() => {
+                        setDateRange({ start: '', end: '' });
+                        setPaymentMethod('');
+                        setChannel('');
+                    }}
+                    className="px-4 py-2 text-sm text-gray-500 hover:text-white transition-colors"
+                >
+                    Limpiar Filtros
                 </button>
             </div>
 
-            {loading ? (
-                <div className="text-center p-12 text-muted-foreground">Cargando datos...</div>
-            ) : sales.length === 0 ? (
-                <div className="text-center p-12 text-muted-foreground bg-card rounded-xl border border-border">
-                    No hay datos de ventas suficientes para generar reportes.
+            {/* Table */}
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="bg-muted/30 text-xs uppercase text-muted-foreground font-semibold">
+                            <tr>
+                                <th className="p-4">Fecha</th>
+                                <th className="p-4">Cliente</th>
+                                <th className="p-4">Canal</th>
+                                <th className="p-4">Método</th>
+                                <th className="p-4 text-right">Total</th>
+                                <th className="p-4 text-right">Ganancia</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50 text-sm">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="6" className="p-8 text-center text-muted-foreground">Cargando datos...</td>
+                                </tr>
+                            ) : sales.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="p-8 text-center text-muted-foreground">No hay ventas registradas en este periodo.</td>
+                                </tr>
+                            ) : (
+                                sales.map((sale) => (
+                                    <tr key={sale._id} className="hover:bg-muted/20 transition-colors">
+                                        <td className="p-4 whitespace-nowrap">
+                                            {new Date(sale.date).toLocaleDateString()}
+                                            <span className="text-xs text-muted-foreground block">
+                                                {new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 font-medium">{sale.customer?.name || 'Cliente Casual'}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium 
+                                                ${sale.channel === 'WhatsApp' ? 'bg-green-500/10 text-green-500' :
+                                                    sale.channel === 'Instagram' ? 'bg-pink-500/10 text-pink-500' :
+                                                        'bg-blue-500/10 text-blue-500'}`}>
+                                                {sale.channel}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">{sale.paymentMethod}</td>
+                                        <td className="p-4 text-right font-bold">${sale.totalAmount.toLocaleString()}</td>
+                                        <td className="p-4 text-right text-green-500 font-medium">+${(sale.totalProfit || 0).toLocaleString()}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Sales by Channel - Pie Chart */}
-                    <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
-                        <h3 className="text-lg font-bold mb-4">Ventas por Canal</h3>
-                        <div className="h-80">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={channelData}
-                                        cx="50%"
-                                        cy="50%"
-                                        labelLine={false}
-                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                        outerRadius={100}
-                                        fill="#8884d8"
-                                        dataKey="value"
-                                    >
-                                        {channelData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(value) => formatCurrency(value)} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
-                    {/* Monthly Sales - Bar Chart */}
-                    <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
-                        <h3 className="text-lg font-bold mb-4">Tendencia Mensual</h3>
-                        <div className="h-80">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={monthlyData}>
-                                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                                    <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(val) => `$${val / 1000}k`} />
-                                    <Tooltip
-                                        cursor={{ fill: 'hsl(var(--accent))' }}
-                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                                        formatter={(value) => formatCurrency(value)}
-                                    />
-                                    <Legend />
-                                    <Bar dataKey="ventas" name="Ventas Totales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
-                    {/* Payment Methods - Bar Chart */}
-                    <div className="bg-card p-6 rounded-xl border border-border shadow-sm md:col-span-2">
-                        <h3 className="text-lg font-bold mb-4">Transacciones por Medio de Pago</h3>
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={paymentData} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
-                                    <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" width={100} />
-                                    <Tooltip
-                                        cursor={{ fill: 'hsl(var(--accent))' }}
-                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                                    />
-                                    <Bar dataKey="count" name="Transacciones" fill="#82ca9d" radius={[0, 4, 4, 0]} barSize={20} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-            )}
+            </div>
         </div>
     );
 };

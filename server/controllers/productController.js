@@ -42,7 +42,8 @@ const createProduct = async (req, res) => {
             costPrice,
             publicPrice,
             stock,
-            minStock
+            minStock,
+            image
         } = req.body;
 
         const productExists = await Product.findOne({ sku });
@@ -59,12 +60,14 @@ const createProduct = async (req, res) => {
             costPrice,
             publicPrice,
             stock,
-            minStock
+            minStock,
+            image
         });
 
         const createdProduct = await product.save();
         res.status(201).json(createdProduct);
     } catch (error) {
+        console.error("Error creating product:", error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -83,7 +86,8 @@ const updateProduct = async (req, res) => {
             publicPrice,
             stock,
             minStock,
-            status
+            status,
+            image
         } = req.body;
 
         const product = await Product.findById(req.params.id);
@@ -98,6 +102,7 @@ const updateProduct = async (req, res) => {
             product.stock = stock !== undefined ? stock : product.stock;
             product.minStock = minStock !== undefined ? minStock : product.minStock;
             product.status = status || product.status;
+            product.image = image || product.image;
 
             const updatedProduct = await product.save();
             res.json(updatedProduct);
@@ -105,6 +110,7 @@ const updateProduct = async (req, res) => {
             res.status(404).json({ message: 'Product not found' });
         }
     } catch (error) {
+        console.error("Error updating product:", error);
         res.status(500).json({ message: error.message });
     }
 };

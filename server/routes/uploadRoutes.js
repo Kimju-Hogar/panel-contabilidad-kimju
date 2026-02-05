@@ -37,7 +37,8 @@ const upload = multer({
 // @route   POST /api/upload
 // @access  Public
 router.post('/', upload.single('image'), (req, res) => {
-    res.send(`/${req.file.path.replace(/\\/g, '/')}`);
+    const filePath = req.file.path.replace(/\\/g, '/');
+    res.json({ imagePath: `/${filePath}` });
 });
 
 module.exports = router;

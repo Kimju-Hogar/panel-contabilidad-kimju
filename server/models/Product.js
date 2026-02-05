@@ -57,7 +57,7 @@ const productSchema = new mongoose.Schema({
 });
 
 // Calculate margin before saving
-productSchema.pre('save', function (next) {
+productSchema.pre('save', async function () {
     if (this.publicPrice > 0) {
         this.margin.amount = this.publicPrice - this.costPrice;
         this.margin.percentage = (this.margin.amount / this.publicPrice) * 100;
@@ -65,7 +65,6 @@ productSchema.pre('save', function (next) {
         this.margin.amount = 0;
         this.margin.percentage = 0;
     }
-    next();
 });
 
 const Product = mongoose.model('Product', productSchema);
