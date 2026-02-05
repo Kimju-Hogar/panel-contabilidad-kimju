@@ -88,6 +88,9 @@ const getSales = async (req, res) => {
         // Exact Match Filters
         if (paymentMethod) query.paymentMethod = paymentMethod;
         if (channel) query.channel = channel;
+        if (req.query.productId) {
+            query["products.product"] = req.query.productId;
+        }
 
         const sales = await Sale.find(query)
             .populate('products.product', 'name sku')
@@ -100,7 +103,57 @@ const getSales = async (req, res) => {
     }
 };
 
+// @desc    Get sales aggregated by product (for reports)
+// @route   GET /api/sales/by-product
+// @access  Private
+const getSalesByProduct = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        let matchStage = {};
+
+        if (startDate || endDate) {
+            matchStage.date = {};
+            if (startDate) matchStage.date.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                matchStage.date.$lte = end;
+            }
+        }
+
+        const sales = await Sale.aggregate([
+            { $match: matchStage },
+            { $unwind: "$products" },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "products.product",
+                    foreignField: "_id",
+                    as: "productDetails"
+                }
+            },
+            { $unwind: "$productDetails" },
+            {
+                $group: {
+                    _id: "$productDetails._id",
+                    productName: { $first: "$productDetails.name" },
+                    sku: { $first: "$productDetails.sku" },
+                    totalQuantity: { $sum: "$products.quantity" },
+                    totalRevenue: { $sum: "$products.subtotal" },
+                    totalProfit: { $sum: { $subtract: ["$products.subtotal", { $multiply: ["$products.quantity", "$products.unitCost"] }] } }
+                }
+            },
+            { $sort: { totalRevenue: -1 } }
+        ]);
+
+        res.json(sales);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     createSale,
-    getSales
+    getSales,
+    getSalesByProduct
 };

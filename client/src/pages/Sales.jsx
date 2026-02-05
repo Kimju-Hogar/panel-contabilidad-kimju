@@ -10,8 +10,17 @@ const Sales = () => {
     const [cart, setCart] = useState([]);
     const [customer, setCustomer] = useState({ name: '', contact: '' });
     const [paymentMethod, setPaymentMethod] = useState('');
+    const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
     const [channel, setChannel] = useState('');
     const [loading, setLoading] = useState(true);
+
+    const paymentOptions = [
+        { id: 'Nequi', label: 'Nequi', value: 'Nequi 3146757580', icon: '📱', detail: '3146757580', color: 'text-pink-600' },
+        { id: 'Bancolombia', label: 'Bancolombia', value: 'Bancolombia 52378931541', icon: '💳', detail: '52378931541 Ahorro', color: 'text-yellow-600' },
+        { id: 'Efectivo', label: 'Efectivo', value: 'Efectivo', icon: '💵', detail: 'Caja General', color: 'text-green-600' }
+    ];
+
+    const selectedPaymentOption = paymentOptions.find(opt => opt.value === paymentMethod);
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -275,31 +284,79 @@ const Sales = () => {
                                 onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
                             />
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <select
-                                className="w-full p-2.5 text-sm rounded-lg border border-input bg-muted/30 focus:bg-background transition-colors outline-none"
-                                value={paymentMethod}
-                                onChange={(e) => setPaymentMethod(e.target.value)}
-                            >
-                                <option value="">Método Pago</option>
-                                <option value="Mercado Pago">Mercado Pago</option>
-                                <option value="Nequi">Nequi</option>
-                                <option value="Daviplata">Daviplata</option>
-                                <option value="Efectivo">Efectivo</option>
-                                <option value="Transferencia">Transferencia</option>
-                            </select>
-                            <select
-                                className="w-full p-2.5 text-sm rounded-lg border border-input bg-muted/30 focus:bg-background transition-colors outline-none"
-                                value={channel}
-                                onChange={(e) => setChannel(e.target.value)}
-                            >
-                                <option value="">Canal Venta</option>
-                                <option value="Instagram">Instagram</option>
-                                <option value="WhatsApp">WhatsApp</option>
-                                <option value="Website">Página Web</option>
-                                <option value="Tienda">Tienda Física</option>
-                            </select>
+                        {/* Payment Methods Dropdown */}
+                        <div className="relative">
+                            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 block font-semibold">Método de Pago</label>
+
+                            {/* Backdrop for closing */}
+                            {isPaymentDropdownOpen && (
+                                <div className="fixed inset-0 z-40" onClick={() => setIsPaymentDropdownOpen(false)}></div>
+                            )}
+
+                            <div className="relative z-50">
+                                <button
+                                    onClick={() => setIsPaymentDropdownOpen(!isPaymentDropdownOpen)}
+                                    className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all bg-muted/30 hover:bg-muted/50 focus:ring-2 focus:ring-primary/20 outline-none
+                                        ${isPaymentDropdownOpen ? 'border-primary ring-2 ring-primary/20' : 'border-input'}
+                                    `}
+                                >
+                                    {selectedPaymentOption ? (
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-2xl ${selectedPaymentOption.color}`}>{selectedPaymentOption.icon}</span>
+                                            <div className="flex flex-col leading-none">
+                                                <span className="font-bold text-sm text-foreground">{selectedPaymentOption.label}</span>
+                                                <span className="text-[10px] text-muted-foreground font-mono">{selectedPaymentOption.detail}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <span className="text-muted-foreground text-sm">Seleccionar Medio de Pago...</span>
+                                    )}
+                                    <div className="text-muted-foreground">▼</div>
+                                </button>
+
+                                {isPaymentDropdownOpen && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 p-1.5 grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto">
+                                        {paymentOptions.map((method) => (
+                                            <button
+                                                key={method.id}
+                                                onClick={() => {
+                                                    setPaymentMethod(method.value);
+                                                    setIsPaymentDropdownOpen(false);
+                                                }}
+                                                className={`
+                                                    w-full flex items-center gap-3 p-2.5 rounded-lg transition-colors text-left
+                                                    ${paymentMethod === method.value
+                                                        ? 'bg-primary/10 text-primary'
+                                                        : 'hover:bg-muted text-foreground'
+                                                    }
+                                                `}
+                                            >
+                                                <span className={`text-xl ${method.color}`}>{method.icon}</span>
+                                                <div className="flex flex-col leading-none">
+                                                    <span className="font-bold text-sm">{method.label}</span>
+                                                    <span className="text-[10px] opacity-70 font-mono mt-0.5">{method.detail}</span>
+                                                </div>
+                                                {paymentMethod === method.value && (
+                                                    <div className="ml-auto w-2 h-2 rounded-full bg-primary"></div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        <select
+                            className="w-full p-2.5 text-sm rounded-lg border border-input bg-muted/30 focus:bg-background transition-colors outline-none cursor-pointer hover:bg-muted/50"
+                            value={channel}
+                            onChange={(e) => setChannel(e.target.value)}
+                        >
+                            <option value="">Seleccionar Canal de Venta...</option>
+                            <option value="Instagram">Instagram</option>
+                            <option value="WhatsApp">WhatsApp</option>
+                            <option value="Website">Página Web</option>
+                            <option value="Tienda">Tienda Física</option>
+                        </select>
                     </div>
 
                     <div className="pt-4 border-t border-border flex items-center justify-between gap-4">

@@ -1,37 +1,43 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Products from './pages/Products';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
+import { AuthProvider, useAuth } from './context/AuthProvider';
 
-// Placeholder Auth Wrapper
-const ProtectedRoute = ({ children }) => {
-  // TODO: Implement actual auth check
-  const isAuthenticated = true;
-  return isAuthenticated ? children : <Navigate to="/login" />;
+const ProtectedRoute = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
+
+  return user ? <Outlet /> : <Navigate to="/login" />;
 };
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <AuthContextWrapper>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<Dashboard />} />
-          <Route path="products" element={<Products />} />
-          <Route path="sales" element={<Sales />} />
-          <Route path="reports" element={<Reports />} />
-        </Route>
-      </Routes>
-    </Router>
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="products" element={<Products />} />
+              <Route path="sales" element={<Sales />} />
+              <Route path="reports" element={<Reports />} />
+            </Route>
+          </Route>
+        </Routes>
+      </Router>
+    </AuthContextWrapper>
   );
 }
+
+const AuthContextWrapper = ({ children }) => (
+  <AuthProvider>{children}</AuthProvider>
+);
 
 export default App;

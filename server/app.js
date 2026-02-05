@@ -23,6 +23,7 @@ app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/sales', require('./routes/saleRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes')); // Route registered
+app.use('/api/dashboard', require('./routes/dashboardRoutes')); // Dashboard routes
 
 // Make uploads folder static
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

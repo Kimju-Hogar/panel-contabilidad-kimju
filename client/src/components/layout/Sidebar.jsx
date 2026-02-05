@@ -1,48 +1,78 @@
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, BarChart3, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, ShoppingBag, FileText, ShoppingCart, LogOut, Sun, Moon } from 'lucide-react';
+import { useAuth } from '../../context/AuthProvider';
+import clsx from 'clsx';
 
-const Sidebar = () => {
-    const location = useLocation();
+const Sidebar = ({ isOpen, closeSidebar }) => {
+    const { logout } = useAuth();
+    const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
-    const menuItems = [
-        { title: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
-        { title: 'Productos', path: '/products', icon: <Package size={20} /> },
-        { title: 'Ventas', path: '/sales', icon: <ShoppingCart size={20} /> },
-        { title: 'Reportes', path: '/reports', icon: <BarChart3 size={20} /> },
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('theme', theme);
+    }, [theme]);
+
+    const toggleTheme = () => {
+        setTheme(theme === 'light' ? 'dark' : 'light');
+    };
+
+    const navItems = [
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+        { icon: ShoppingBag, label: 'Productos', path: '/products' },
+        { icon: ShoppingCart, label: 'Ventas', path: '/sales' },
+        { icon: FileText, label: 'Reportes', path: '/reports' },
     ];
 
     return (
-        <div className="h-screen w-64 bg-card border-r border-border flex flex-col hidden md:flex">
-            <div className="p-6 border-b border-border">
-                <h1 className="text-2xl font-bold text-primary">Kimju Panel</h1>
+        <aside className={`fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex flex-col z-50 transition-transform duration-300 md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className="p-6 border-b border-border flex items-center justify-center">
+                <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-400">
+                    Kimju Hogar
+                </h1>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2">
-                {menuItems.map((item) => {
-                    const isActive = location.pathname === item.path;
-                    return (
-                        <Link
-                            key={item.path}
-                            to={item.path}
-                            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                                ? 'bg-primary text-primary-foreground'
-                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                                }`}
-                        >
-                            {item.icon}
-                            <span className="font-medium">{item.title}</span>
-                        </Link>
-                    );
-                })}
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+                {navItems.map((item) => (
+                    <NavLink
+                        key={item.path}
+                        to={item.path}
+                        className={({ isActive }) =>
+                            clsx(
+                                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-medium",
+                                isActive
+                                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            )
+                        }
+                    >
+                        <item.icon size={20} />
+                        <span>{item.label}</span>
+                    </NavLink>
+                ))}
             </nav>
 
-            <div className="p-4 border-t border-border">
-                <button className="flex items-center space-x-3 px-4 py-3 w-full rounded-lg text-destructive hover:bg-destructive/10 transition-colors">
+            <div className="p-4 border-t border-border space-y-2">
+                <button
+                    onClick={toggleTheme}
+                    className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 font-medium"
+                >
+                    {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                    <span>{theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}</span>
+                </button>
+                <button
+                    onClick={logout}
+                    className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-red-500 hover:bg-red-500/10 transition-all duration-200 font-medium"
+                >
                     <LogOut size={20} />
-                    <span className="font-medium">Cerrar Sesión</span>
+                    <span>Cerrar Sesión</span>
                 </button>
             </div>
-        </div>
+        </aside>
     );
 };
 
