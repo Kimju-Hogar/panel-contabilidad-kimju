@@ -26,7 +26,20 @@ app.use('/api/categories', require('./routes/categoryRoutes')); // Route registe
 app.use('/api/dashboard', require('./routes/dashboardRoutes')); // Dashboard routes
 
 // Make uploads folder static
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const fs = require('fs');
+const uploadPath = process.env.UPLOAD_PATH || path.join(__dirname, 'uploads');
+
+// Ensure upload directory exists
+if (!fs.existsSync(uploadPath)) {
+    try {
+        fs.mkdirSync(uploadPath, { recursive: true });
+        console.log(`Created upload directory: ${uploadPath}`);
+    } catch (err) {
+        console.error(`Error creating upload directory: ${err.message}`);
+    }
+}
+
+app.use('/uploads', express.static(uploadPath));
 
 app.get('/', (req, res) => {
     res.send('API is running...');

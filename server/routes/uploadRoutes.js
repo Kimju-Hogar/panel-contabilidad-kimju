@@ -6,7 +6,7 @@ const path = require('path');
 // Configure Storage
 const storage = multer.diskStorage({
     destination(req, file, cb) {
-        cb(null, 'uploads/');
+        cb(null, process.env.UPLOAD_PATH || 'uploads/');
     },
     filename(req, file, cb) {
         cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
@@ -37,8 +37,8 @@ const upload = multer({
 // @route   POST /api/upload
 // @access  Public
 router.post('/', upload.single('image'), (req, res) => {
-    const filePath = req.file.path.replace(/\\/g, '/');
-    res.json({ imagePath: `/${filePath}` });
+    // Return relative URL for frontend to use
+    res.json({ imagePath: `/uploads/${req.file.filename}` });
 });
 
 module.exports = router;
