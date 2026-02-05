@@ -35,12 +35,10 @@ const saleSchema = new mongoose.Schema({
     },
     paymentMethod: {
         type: String,
-        enum: ['Mercado Pago', 'Transferencia', 'Efectivo', 'Nequi', 'Daviplata', 'Other'],
         required: true
     },
     channel: {
         type: String,
-        enum: ['Instagram', 'WhatsApp', 'Website', 'Other'],
         required: true
     },
     customer: {
